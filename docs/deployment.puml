@@ -1,0 +1,79 @@
+@startuml deployment
+!pragma layout smetana
+skinparam defaultFontName Helvetica
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam dpi 150
+skinparam nodesep 45
+skinparam ranksep 70
+skinparam roundCorner 6
+skinparam node {
+  BackgroundColor #F7F9FC
+  BorderColor #4A5568
+  StereotypeFontColor #4A5568
+}
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #2F5BD3
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #1F8A53
+}
+skinparam folder {
+  BackgroundColor #FFFFFF
+  BorderColor #8A6D1F
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #9AA3B2
+  BorderStyle dashed
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #C9A227
+}
+skinparam ArrowColor #4A5568
+skinparam ArrowFontSize 11
+
+title Лабораторная работа №2 по СОА: схема развёртывания
+
+node "Компьютер пользователя" <<device>> as pc {
+  node "Веб-браузер" <<executionEnvironment>> as browser {
+    artifact "Веб-клиент\nHTML, CSS, JavaScript" as spa
+  }
+  node "SSH-клиент" <<executionEnvironment>> as sshc
+}
+
+rectangle "Сеть ИТМО" as itmo {
+
+  node "se.ifmo.ru" <<device>> as se {
+      artifact "/~s408517/soa/lab2/\nстатические файлы веб-клиента" as pubweb
+  }
+
+  node "helios.cs.ifmo.ru\nFreeBSD 14.5, OpenJDK 17" <<device>> as helios {
+    node "Payara Server 6, домен vehicle\nHTTPS :28581\nadmin :28548 только на 127.0.0.1" <<executionEnvironment>> as vehicle {
+      artifact "vehicle-service.war\nсервис 1: JAX-RS (Jersey),\nJPA (EclipseLink), Flyway" as vwar
+    }
+    node "Payara Server 6, домен shop\nHTTPS :28681\nadmin :28648 только на 127.0.0.1" <<executionEnvironment>> as shop {
+      artifact "shop-service.war\nсервис 2: Spring MVC" as swar
+      artifact "client.war\n/client" as cwar
+      artifact "swagger.war\n/swagger" as swwar
+    }
+    folder "<U+007E>/public_html/soa/lab2" as pubdir
+    node "sshd :2222" <<executionEnvironment>> as sshd
+  }
+
+  node "pg\nPostgreSQL 16" <<device>> as pg {
+    database "БД studs, схема s408517\nsoa_vehicle, soa_flyway_history" as db
+  }
+}
+
+spa --> vwar : HTTPS :28581\nREST/JSON, CORS
+spa --> swar : HTTPS :28681\nREST/JSON, CORS
+swar --> vwar : HTTPS :28581 (localhost)\nREST/JSON; доверяет только\nсертификату сервиса 1
+vwar --> db : JDBC :5432\nпул jdbc/vehicles
+pubdir ..> pubweb : раздаётся как\nse.ifmo.ru/~s408517/
+sshc ..> sshd : SSH :2222, туннель\n-L 28581 -L 28681\n(вне сети ИТМО)
+
+@enduml
