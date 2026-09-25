@@ -1,0 +1,3 @@
+rootProject.name = 'lab2'
+
+include 'vehicle-service', 'shop-service', 'web-client', 'contract-testing', 'deploy'

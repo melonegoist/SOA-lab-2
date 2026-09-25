@@ -1,0 +1,124 @@
+plugins {
+    id 'war'
+    alias(libs.plugins.openapi.generator)
+}
+
+configurations.configureEach {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+}
+
+dependencies {
+    implementation platform(libs.spring.boot.dependencies)
+    providedCompile platform(libs.spring.boot.dependencies)
+
+    implementation(libs.spring.boot.starter.web) {
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
+    }
+
+    runtimeOnly libs.jackson.dataformat.xml
+    runtimeOnly libs.jackson.dataformat.yaml
+
+    providedCompile libs.jakarta.servlet.api
+    providedCompile libs.jakarta.validation.api
+    providedCompile libs.jakarta.annotation.api
+
+    testImplementation platform(libs.junit.bom)
+    testImplementation libs.junit.jupiter
+    testImplementation libs.assertj.core
+    testImplementation libs.spring.test
+    testRuntimeOnly libs.junit.platform.launcher
+}
+
+def generatedSources = layout.buildDirectory.dir('generated/openapi')
+
+def commonGeneratorSettings = { task ->
+    task.generatorName = 'spring'
+    task.cleanupOutput = true
+    task.templateDir = file('openapi-templates').absolutePath
+    task.modelNameSuffix = 'Dto'
+    task.globalProperties = [apis: '', models: '']
+    task.generateApiTests = false
+    task.generateModelTests = false
+    task.generateApiDocumentation = false
+    task.generateModelDocumentation = false
+}
+
+def commonConfigOptions = [
+        useSpringBoot3         : 'true',
+        useJakartaEe           : 'true',
+        useTags                : 'true',
+        openApiNullable        : 'false',
+        documentationProvider  : 'none',
+        annotationLibrary      : 'none',
+        hideGenerationTimestamp: 'true',
+        sourceFolder           : 'src/main/java',
+]
+
+openApiGenerate {
+    commonGeneratorSettings(delegate)
+    inputSpec = rootProject.file('openapi/shop-service.yaml').absolutePath
+    outputDir = generatedSources.get().dir('server').asFile.absolutePath
+    apiPackage = 'org.itmo.shop.infrastructure.web.generated.api'
+    modelPackage = 'org.itmo.shop.infrastructure.web.generated.model'
+    configOptions = commonConfigOptions + [
+            interfaceOnly             : 'true',
+            skipDefaultInterface      : 'true',
+            useBeanValidation         : 'true',
+            useSpringBuiltInValidation: 'true',
+    ]
+}
+
+def generateVehicleClient = tasks.register('generateVehicleClient', org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    commonGeneratorSettings(delegate)
+    library = 'spring-http-interface'
+    inputSpec = rootProject.file('openapi/vehicle-service.yaml').absolutePath
+    outputDir = generatedSources.get().dir('vehicle-client').asFile.absolutePath
+    apiPackage = 'org.itmo.shop.infrastructure.vehicleservice.generated.api'
+    modelPackage = 'org.itmo.shop.infrastructure.vehicleservice.generated.model'
+    configOptions = commonConfigOptions + [
+            useBeanValidation: 'false',
+    ]
+}
+
+sourceSets.main.java.srcDirs(
+        generatedSources.map { it.dir('server/src/main/java') },
+        generatedSources.map { it.dir('vehicle-client/src/main/java') },
+)
+tasks.named('compileJava') {
+    dependsOn tasks.named('openApiGenerate'), generateVehicleClient
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+sourceSets {
+    contractTest
+}
+configurations {
+    contractTestImplementation.extendsFrom testImplementation
+    contractTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+dependencies {
+    contractTestImplementation project(':contract-testing')
+}
+tasks.register('contractTest', Test) {
+    description = 'Checks a deployed shop service against openapi/shop-service.yaml.'
+    group = 'verification'
+    testClassesDirs = sourceSets.contractTest.output.classesDirs
+    classpath = sourceSets.contractTest.runtimeClasspath
+    useJUnitPlatform()
+    systemProperty 'contract.shop.spec', rootProject.file('openapi/shop-service.yaml').absolutePath
+    systemProperty 'contract.shop.baseUrl',
+            findProperty('contract.shop.baseUrl') ?: 'https://localhost:28681/shop-service'
+    systemProperty 'contract.vehicle.spec', rootProject.file('openapi/vehicle-service.yaml').absolutePath
+    systemProperty 'contract.vehicle.baseUrl',
+            findProperty('contract.vehicle.baseUrl') ?: 'https://localhost:28581/vehicle-service'
+    systemProperty 'contract.certificates',
+            rootProject.file(findProperty('contract.certificates') ?: '.local/soa/secrets').absolutePath
+    outputs.upToDateWhen { false }
+}
+
+war {
+    archiveFileName = 'shop-service.war'
+}

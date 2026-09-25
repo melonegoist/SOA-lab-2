@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: shop-service
+  config:
+    import: optional:file:${soa.secrets-dir}/shop-service.properties
+  mvc:
+    servlet:
+      load-on-startup: 1
+  jackson:
+    deserialization:
+      adjust-dates-to-context-time-zone: false
+  ssl:
+    bundle:
+      jks:
+        vehicle-service:
+          truststore:
+            location: file:${soa.secrets-dir}/shop-truststore.p12
+            password: ${soa.truststore-password}
+            type: PKCS12
+
+vehicle-service:
+  base-url: https://localhost:${soa.vehicle-https-port}/vehicle-service
+  connect-timeout: 2s
+  read-timeout: 5s

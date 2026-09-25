@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vehicles</title>
+    <link rel="stylesheet" href="app.css">
+    <script type="module" src="js/main.js"></script>
+</head>
+<body>
+<header>
+    <h1>Vehicles</h1>
+    <p class="services">
+        <span class="service vehicle">Vehicle service</span> <code id="vehicle-service-url"></code>
+        <span class="service shop">Shop service</span> <code id="shop-service-url"></code>
+        <a id="swagger-link" href="/swagger/" target="_blank" rel="noopener">API documentation (Swagger UI)</a>
+    </p>
+</header>
+
+<main>
+    <section id="collection" aria-labelledby="collection-title">
+        <h2 id="collection-title">Collection <span class="service vehicle">GET /vehicles</span></h2>
+        <form id="query-form" class="query">
+            <fieldset>
+                <legend>Filters (combined with AND)</legend>
+                <div id="filters"></div>
+                <button type="button" id="add-filter">Add filter</button>
+            </fieldset>
+            <div class="query-line">
+                <label>Page <input id="page" value="1" size="4" inputmode="numeric" autocomplete="off"></label>
+                <label>Page size <input id="size" value="10" size="4" inputmode="numeric" autocomplete="off"></label>
+                <button type="submit" class="primary">Apply</button>
+                <span id="sort-summary" class="hint"></span>
+                <button type="button" id="clear-sort">Clear sorting</button>
+            </div>
+        </form>
+        <div id="collection-messages" class="messages"></div>
+        <div id="collection-table"></div>
+        <nav class="pager" aria-label="Pages">
+            <button type="button" id="previous-page" disabled>‹ Previous</button>
+            <span id="page-summary"></span>
+            <button type="button" id="next-page" disabled>Next ›</button>
+        </nav>
+    </section>
+
+    <div class="columns">
+        <section id="editor" aria-labelledby="editor-title">
+            <h2><span id="editor-title">New vehicle</span> <span
+                    class="service vehicle">POST · GET · PUT /vehicles</span></h2>
+            <form id="open-form" class="inline">
+                <label>Open by ID <input id="open-id" size="10" inputmode="numeric" autocomplete="off"></label>
+                <button type="submit">Open (GET)</button>
+                <button type="button" id="new-vehicle">New vehicle</button>
+            </form>
+            <p id="editor-created" class="hint"></p>
+            <form id="vehicle-form" novalidate autocomplete="off">
+                <div class="field wide" data-field="name">
+                    <label for="vehicle-name">Name</label>
+                    <input id="vehicle-name">
+                    <small class="field-error"></small>
+                </div>
+                <div class="field" data-field="coordinates/x">
+                    <label for="vehicle-x">X <span class="hint">at most 471</span></label>
+                    <input id="vehicle-x" inputmode="numeric">
+                    <small class="field-error"></small>
+                </div>
+                <div class="field" data-field="coordinates/y">
+                    <label for="vehicle-y">Y</label>
+                    <input id="vehicle-y" inputmode="numeric">
+                    <small class="field-error"></small>
+                </div>
+                <div class="field" data-field="enginePower">
+                    <label for="vehicle-enginePower">Engine power <span class="hint">above 0</span></label>
+                    <input id="vehicle-enginePower" inputmode="decimal">
+                    <small class="field-error"></small>
+                </div>
+                <div class="field" data-field="numberOfWheels">
+                    <label for="vehicle-numberOfWheels">Wheels <span class="hint">optional, above 0</span></label>
+                    <input id="vehicle-numberOfWheels" inputmode="numeric">
+                    <small class="field-error"></small>
+                </div>
+                <div class="field" data-field="mileage">
+                    <label for="vehicle-mileage">Mileage, km <span class="hint">optional, 0 or more</span></label>
+                    <input id="vehicle-mileage" inputmode="decimal">
+                    <small class="field-error"></small>
+                </div>
+                <div class="field" data-field="type">
+                    <label for="vehicle-type">Type <span class="hint">optional</span></label>
+                    <input id="vehicle-type" list="vehicle-types">
+                    <small class="field-error"></small>
+                </div>
+                <div class="field" data-field="fuelType">
+                    <label for="vehicle-fuelType">Fuel type <span class="hint">optional</span></label>
+                    <input id="vehicle-fuelType" list="fuel-types">
+                    <small class="field-error"></small>
+                </div>
+                <div class="form-actions wide">
+                    <button type="submit" id="save-vehicle" class="primary">Create (POST)</button>
+                    <span class="hint">Nothing is checked in the browser: the vehicle service validates.</span>
+                </div>
+            </form>
+            <div id="editor-messages" class="messages"></div>
+        </section>
+
+        <div class="stack">
+            <section id="shop" aria-labelledby="shop-title">
+                <h2 id="shop-title">Shop <span class="service shop">shop service</span></h2>
+                <form id="search-form" class="inline">
+                    <label>Vehicles of type <input id="search-type" list="vehicle-types" value="CHOPPER" size="14"
+                                                   autocomplete="off"></label>
+                    <button type="submit">Search (GET)</button>
+                </form>
+                <div id="search-results" class="messages"></div>
+                <form id="fix-form" class="inline">
+                    <label>Reset mileage of vehicle ID <input id="fix-id" size="10" inputmode="numeric"
+                                                              autocomplete="off"></label>
+                    <button type="submit">Reset (POST)</button>
+                </form>
+                <div id="fix-messages" class="messages"></div>
+            </section>
+
+            <section id="statistics" aria-labelledby="statistics-title">
+                <h2 id="statistics-title">Statistics <span class="service vehicle">GET /vehicles/statistics</span></h2>
+                <button type="button" id="refresh-statistics">Refresh</button>
+                <h3>Sum of engine power</h3>
+                <div id="statistics-power"></div>
+                <h3>Average number of wheels</h3>
+                <div id="statistics-wheels"></div>
+                <h3>Vehicle with the maximum name</h3>
+                <div id="statistics-max-name"></div>
+            </section>
+        </div>
+    </div>
+
+    <section id="exchanges" aria-labelledby="exchanges-title">
+        <h2 id="exchanges-title">Requests of this page</h2>
+        <ul id="exchange-log"></ul>
+    </section>
+</main>
+
+<datalist id="vehicle-types">
+    <option value="HELICOPTER"></option>
+    <option value="MOTORCYCLE"></option>
+    <option value="CHOPPER"></option>
+    <option value="SPACESHIP"></option>
+</datalist>
+<datalist id="fuel-types">
+    <option value="GASOLINE"></option>
+    <option value="ELECTRICITY"></option>
+    <option value="MANPOWER"></option>
+    <option value="ANTIMATTER"></option>
+</datalist>
+</body>
+</html>

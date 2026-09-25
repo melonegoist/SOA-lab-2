@@ -1,0 +1,38 @@
+plugins {
+    id 'war'
+}
+
+configurations {
+    swaggerUi { transitive = false }
+}
+
+dependencies {
+    providedCompile libs.jakartaee.web.api
+    swaggerUi libs.webjars.swagger.ui
+}
+
+war {
+    archiveFileName = 'client.war'
+    preserveFileTimestamps = true
+}
+
+def swaggerWar = tasks.register('swaggerWar', War) {
+    group = 'build'
+    description = 'Assembles Swagger UI with openapi/*.yaml into swagger.war.'
+    archiveFileName = 'swagger.war'
+    preserveFileTimestamps = true
+    webAppDirectory = file('src/swagger')
+    classpath = sourceSets.main.output
+    webXml = file('src/main/webapp/WEB-INF/web.xml')
+    from(configurations.swaggerUi.elements.map { jars -> jars.collect { zipTree(it) } }) {
+        include '**/swagger-ui.css', '**/swagger-ui-bundle.js', '**/swagger-ui-standalone-preset.js',
+                '**/favicon-16x16.png', '**/favicon-32x32.png'
+        eachFile { path = name }
+        includeEmptyDirs = false
+    }
+    into('specs') {
+        from(rootProject.file('openapi')) { include '*.yaml' }
+    }
+}
+
+tasks.named('assemble') { dependsOn swaggerWar }

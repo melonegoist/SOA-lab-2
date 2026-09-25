@@ -1,0 +1,77 @@
+{{!
+  Override of JavaSpring/enumOuterClass.mustache (openapi-generator 7.25.0).
+
+  The stock template returns null for an unknown value of a nullable enum.
+  In the client of the vehicle service that would be data loss: a type this
+  service does not know yet would be read as null and written back as null
+  by the PUT of fix-distance. Failing to read the response is the safe
+  outcome. JSON null never reaches fromValue (Jackson resolves it before
+  calling the creator), therefore an unknown value is always an error here.
+}}
+{{#jackson}}
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+{{/jackson}}
+
+/**
+ * {{^description}}Gets or Sets {{{name}}}{{/description}}{{{description}}}{{#isDeprecated}}
+ * @deprecated deprecated{{/isDeprecated}}
+ */
+{{>additionalEnumTypeAnnotations}}
+
+{{#isDeprecated}}
+@Deprecated
+{{/isDeprecated}}
+{{>generatedAnnotation}}
+
+public enum {{{datatypeWithEnum}}}{{^datatypeWithEnum}}{{{classname}}}{{/datatypeWithEnum}}{{#vendorExtensions.x-implements}}{{#-first}} implements {{{.}}}{{/-first}}{{^-first}}, {{{.}}}{{/-first}}{{/vendorExtensions.x-implements}} {
+  {{#gson}}
+  {{#allowableValues}}{{#enumVars}}
+  {{#enumDescription}}
+  /**
+   * {{.}}
+   */
+  {{/enumDescription}}
+  @SerializedName({{#isInteger}}"{{/isInteger}}{{#isDouble}}"{{/isDouble}}{{#isLong}}"{{/isLong}}{{#isFloat}}"{{/isFloat}}{{{value}}}{{#isInteger}}"{{/isInteger}}{{#isDouble}}"{{/isDouble}}{{#isLong}}"{{/isLong}}{{#isFloat}}"{{/isFloat}})
+  {{{name}}}({{{value}}}){{^-last}},
+  {{/-last}}{{#-last}};{{/-last}}{{/enumVars}}{{/allowableValues}}
+  {{/gson}}
+  {{^gson}}
+  {{#allowableValues}}{{#enumVars}}
+  {{#enumDescription}}
+  /**
+   * {{.}}
+   */
+  {{/enumDescription}}
+  {{{name}}}({{{value}}}){{^-last}},
+  {{/-last}}{{#-last}};{{/-last}}{{/enumVars}}{{/allowableValues}}
+  {{/gson}}
+
+  private final {{{dataType}}} value;
+
+  {{{datatypeWithEnum}}}{{^datatypeWithEnum}}{{{classname}}}{{/datatypeWithEnum}}({{{dataType}}} value) {
+    this.value = value;
+  }
+
+  {{#jackson}}
+  @JsonValue
+  {{/jackson}}
+  public {{{dataType}}} getValue() {
+    return value;
+  }
+
+  @Override
+  public String toString() {
+    return String.valueOf(value);
+  }
+
+  @JsonCreator
+  public static {{{datatypeWithEnum}}}{{^datatypeWithEnum}}{{{classname}}}{{/datatypeWithEnum}} fromValue({{{dataType}}} value) {
+    for ({{{datatypeWithEnum}}}{{^datatypeWithEnum}}{{{classname}}}{{/datatypeWithEnum}} b : {{{datatypeWithEnum}}}{{^datatypeWithEnum}}{{{classname}}}{{/datatypeWithEnum}}.values()) {
+      if (b.value.equals{{#isString}}{{#useEnumCaseInsensitive}}IgnoreCase{{/useEnumCaseInsensitive}}{{/isString}}(value)) {
+        return b;
+      }
+    }
+    throw new IllegalArgumentException("Unexpected value '" + value + "'");
+  }
+}

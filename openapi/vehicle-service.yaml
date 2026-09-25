@@ -1,0 +1,666 @@
+openapi: 3.0.3
+info:
+  title: Vehicle Service API
+  description: |
+    Service managing a collection of vehicles.
+  version: 1.0.0
+servers:
+  - url: https://localhost:28581/vehicle-service
+    description: |
+      Local Payara domain, or helios through an SSH tunnel that keeps
+      the same port number.
+  - url: https://helios.cs.ifmo.ru:28581/vehicle-service
+    description: helios directly, from the university network.
+tags:
+  - name: Vehicles
+    description: Basic operations over the vehicle collection.
+  - name: Statistics
+    description: Aggregate operations over the vehicle collection.
+paths:
+  /vehicles:
+    get:
+      tags:
+        - Vehicles
+      summary: Retrieve a page of vehicles
+      description: |
+        Returns a selection of vehicles with support for filtering,
+        sorting and pagination.
+      operationId: getVehicles
+      parameters:
+        - $ref: '#/components/parameters/FilterParam'
+        - $ref: '#/components/parameters/SortParam'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: A page of query results.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehiclePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - Vehicles
+      summary: Create a vehicle
+      description: |
+        Creates a new object in the collection.
+
+        Values of the id and creationDate fields are assigned by the server
+        and are not taken from the request.
+      operationId: createVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleCreateRequest'
+      responses:
+        '201':
+          description: The object has been created.
+          headers:
+            Location:
+              description: URI of the created resource.
+              schema:
+                type: string
+                format: uri-reference
+                example: /vehicles/42
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /vehicles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/VehicleIdParam'
+    get:
+      tags:
+        - Vehicles
+      summary: Retrieve a vehicle by identifier
+      description: Returns the full representation of the object with the given id.
+      operationId: getVehicleById
+      responses:
+        '200':
+          description: The object has been found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags:
+        - Vehicles
+      summary: Update a vehicle
+      description: |
+        Fully replaces the object with the given id by the data from
+        the request.
+
+        The semantics are replacing: optional fields omitted from the
+        request body are treated as null and overwrite previous values.
+        The id and creationDate fields retain their original values.
+      operationId: updateVehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleUpdateRequest'
+      responses:
+        '200':
+          description: The object has been updated. Its new state is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - Vehicles
+      summary: Delete a vehicle
+      description: |
+        Removes the object with the given id from the collection.
+      operationId: deleteVehicle
+      responses:
+        '204':
+          description: The object has been deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /vehicles/statistics/engine-power-sum:
+    get:
+      tags:
+        - Statistics
+      summary: Sum of engine power values
+      description: |
+        Returns the sum of the enginePower field over all objects
+        in the collection.
+      operationId: getEnginePowerSum
+      responses:
+        '200':
+          description: The sum has been calculated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnginePowerSum'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /vehicles/statistics/number-of-wheels-average:
+    get:
+      tags:
+        - Statistics
+      summary: Average number of wheels
+      description: |
+        Returns the arithmetic mean of the numberOfWheels field.
+
+        The field is optional, so only objects that define it take part
+        in the calculation. Their count is reported in the
+        consideredElements field.
+
+        When no such object exists, the average field equals null.
+      operationId: getNumberOfWheelsAverage
+      responses:
+        '200':
+          description: The average has been calculated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NumberOfWheelsAverage'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /vehicles/statistics/max-name:
+    get:
+      tags:
+        - Statistics
+      summary: Vehicle with the maximum name
+      description: |
+        Returns one object whose name field holds the maximum value
+        under lexicographic comparison.
+
+        When several objects share the maximum value, an arbitrary one
+        among them is returned.
+      operationId: getVehicleWithMaxName
+      responses:
+        '200':
+          description: The object has been found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '404':
+          description: The collection is empty.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  parameters:
+    VehicleIdParam:
+      name: id
+      in: path
+      required: true
+      description: Vehicle identifier.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+      example: 42
+    FilterParam:
+      name: filter
+      in: query
+      required: false
+      style: form
+      explode: true
+      description: |
+        A filtering condition in the form field:operator:value.
+
+        The parameter may repeat. Several conditions are combined with
+        logical AND. Values inside the in operator are combined with
+        logical OR.
+
+        ### Available fields
+
+        id, name, coordinates.x, coordinates.y, creationDate, enginePower,
+        numberOfWheels, mileage, type, fuelType
+
+        ### Operators
+
+        | Operator | Meaning | Applicable to |
+        |----------|---------|---------------|
+        | eq     | equal to | all fields |
+        | neq    | not equal to | all fields |
+        | gt     | greater than | numeric fields and dates |
+        | gte    | greater than or equal to | numeric fields and dates |
+        | lt     | less than | numeric fields and dates |
+        | lte    | less than or equal to | numeric fields and dates |
+        | like   | contains the substring, case-insensitive | string fields |
+        | in     | belongs to a comma-separated list of values | all fields |
+        | isnull | the value is absent (true) or present (false) | numberOfWheels, mileage, type, fuelType |
+
+        ### Examples
+
+        ?filter=enginePower:gt:100
+
+        ?filter=type:in:CHOPPER,SPACESHIP&filter=name:like:tesla
+
+        ?filter=numberOfWheels:isnull:false&filter=mileage:lte:50000
+      schema:
+        type: array
+        items:
+          type: string
+          pattern: ^(id|name|coordinates\.x|coordinates\.y|creationDate|enginePower|numberOfWheels|mileage|type|fuelType):(eq|neq|gt|gte|lt|lte|like|in|isnull):.+$
+      example:
+        - enginePower:gt:100
+        - type:in:CHOPPER,SPACESHIP
+    SortParam:
+      name: sort
+      in: query
+      required: false
+      style: form
+      explode: true
+      description: |
+        A sorting key. The minus prefix selects descending order,
+        its absence selects ascending order.
+
+        The parameter may repeat: the order in which the parameters appear
+        defines the priority of the sorting keys.
+
+        When the parameter is omitted, results are sorted by id in
+        ascending order.
+
+        ### Example
+
+        ?sort=type&sort=-enginePower
+      schema:
+        type: array
+        items:
+          type: string
+          pattern: ^-?(id|name|coordinates\.x|coordinates\.y|creationDate|enginePower|numberOfWheels|mileage|type|fuelType)$
+      example:
+        - type
+        - '-enginePower'
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: Ordinal number of the page. Numbering starts at one.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 1
+      example: 1
+    SizeParam:
+      name: size
+      in: query
+      required: false
+      description: |
+        Number of elements per page.
+
+        The upper bound is deliberate: it protects the service from
+        retrieving the entire collection in a single request.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+  schemas:
+    EnginePowerSum:
+      type: object
+      description: Result of summing engine power values.
+      required:
+        - sum
+        - consideredElements
+      properties:
+        sum:
+          type: number
+          format: double
+          description: 'Sum of the enginePower field over all objects in the collection.'
+          minimum: 0
+          example: 12450.75
+        consideredElements:
+          type: integer
+          format: int64
+          description: Number of objects taken into account.
+          minimum: 0
+          example: 137
+    NumberOfWheelsAverage:
+      type: object
+      description: Result of averaging the number of wheels.
+      required:
+        - average
+        - consideredElements
+      properties:
+        average:
+          type: number
+          format: double
+          description: Arithmetic mean of the numberOfWheels field over the objects that define it. Equals null when no such object exists.
+          minimum: 0
+          nullable: true
+          example: 3.85
+        consideredElements:
+          type: integer
+          format: int64
+          description: Number of objects with a defined numberOfWheels value. Objects without one are excluded from the calculation.
+          minimum: 0
+          example: 120
+    Coordinates:
+      type: object
+      description: Vehicle coordinates on a plane.
+      required:
+        - x
+        - 'y'
+      properties:
+        x:
+          type: integer
+          format: int32
+          description: X coordinate. Must not exceed 471.
+          maximum: 471
+          example: 120
+        'y':
+          type: integer
+          format: int32
+          description: Y coordinate.
+          example: -47
+      additionalProperties: false
+    NullableVehicleType:
+      type: string
+      description: Vehicle type. The value may be absent.
+      nullable: true
+      enum:
+        - HELICOPTER
+        - MOTORCYCLE
+        - CHOPPER
+        - SPACESHIP
+        - null
+      example: CHOPPER
+    NullableFuelType:
+      type: string
+      description: Fuel type. The value may be absent.
+      nullable: true
+      enum:
+        - GASOLINE
+        - ELECTRICITY
+        - MANPOWER
+        - ANTIMATTER
+        - null
+      example: ELECTRICITY
+    Vehicle:
+      type: object
+      description: Complete representation of a vehicle. The id and creationDate fields are generated by the server.
+      required:
+        - id
+        - name
+        - coordinates
+        - creationDate
+        - enginePower
+      properties:
+        id:
+          type: integer
+          format: int32
+          description: Unique identifier. Generated by the server.
+          minimum: 1
+          readOnly: true
+          example: 42
+        name:
+          type: string
+          description: Vehicle name. Must not be empty.
+          minLength: 1
+          pattern: '^\s*\S[\s\S]*$'
+          example: Tesla Roadster
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        creationDate:
+          type: string
+          format: date-time
+          description: Moment of creation in RFC 3339 format. Generated by the server.
+          readOnly: true
+          example: '2026-09-10T08:19:00+03:00'
+        enginePower:
+          type: number
+          format: float
+          description: Engine power. Strictly greater than zero.
+          minimum: 0
+          exclusiveMinimum: true
+          example: 615.5
+        numberOfWheels:
+          type: integer
+          format: int32
+          description: Number of wheels. Strictly greater than zero when present, may be absent.
+          minimum: 1
+          nullable: true
+          example: 4
+        mileage:
+          type: number
+          format: double
+          description: 'Mileage in kilometres. Must not be negative, may be absent. Zero is a valid value.'
+          minimum: 0
+          nullable: true
+          example: 15320.7
+        type:
+          $ref: '#/components/schemas/NullableVehicleType'
+        fuelType:
+          $ref: '#/components/schemas/NullableFuelType'
+    VehiclePage:
+      type: object
+      description: A page of query results. In addition to the elements themselves it carries metadata.
+      required:
+        - items
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        items:
+          type: array
+          description: Elements of the current page, in the order defined by the sort parameter.
+          items:
+            $ref: '#/components/schemas/Vehicle'
+        page:
+          type: integer
+          format: int32
+          description: Ordinal number of the current page. Numbering starts at one.
+          minimum: 1
+          example: 1
+        size:
+          type: integer
+          format: int32
+          description: Requested page size.
+          minimum: 1
+          maximum: 100
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          description: Total number of elements matching the filters.
+          minimum: 0
+          example: 137
+        totalPages:
+          type: integer
+          format: int32
+          description: Total number of pages at the current page size. Equals zero when no element matches the filters.
+          minimum: 0
+          example: 7
+    ValidationError:
+      type: object
+      description: Violation of a constraint on a particular field.
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          description: Path to the field in JSON Pointer notation without the leading slash.
+          example: coordinates/x
+        message:
+          type: string
+          description: Description of the violated constraint.
+          example: The value must not exceed 471.
+    Problem:
+      type: object
+      description: Error description in RFC 9457 format (Problem Details for HTTP APIs).
+      required:
+        - type
+        - title
+        - status
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI identifying the error type.
+          default: about:blank
+          example: https://example.org/problems/validation-failed
+        title:
+          type: string
+          description: Short human-readable summary of the error type.
+          example: Validation failed
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code of the response, duplicated in the body.
+          minimum: 100
+          maximum: 599
+          example: 400
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+          example: Engine power must be greater than zero.
+        instance:
+          type: string
+          format: uri-reference
+          description: URI of the request that produced the error.
+          example: /vehicles
+        errors:
+          type: array
+          description: 'Extension to the standard: per-field breakdown. Present when integrity constraints are violated.'
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    VehicleCreateRequest:
+      type: object
+      description: 'Data for creating a vehicle. The id and creationDate fields are absent from the request: their values are assigned by the server.'
+      required:
+        - name
+        - coordinates
+        - enginePower
+      properties:
+        name:
+          type: string
+          minLength: 1
+          pattern: '^\s*\S[\s\S]*$'
+          example: Tesla Roadster
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        enginePower:
+          type: number
+          format: float
+          minimum: 0
+          exclusiveMinimum: true
+          example: 615.5
+        numberOfWheels:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+          example: 4
+        mileage:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+          example: 0
+        type:
+          $ref: '#/components/schemas/NullableVehicleType'
+        fuelType:
+          $ref: '#/components/schemas/NullableFuelType'
+      additionalProperties: false
+    VehicleUpdateRequest:
+      type: object
+      description: 'Data for a full replacement of a vehicle (PUT). The semantics are replacing: optional fields omitted from the request are treated as an explicit null and overwrite previous values. The id and creationDate fields are immutable.'
+      required:
+        - name
+        - coordinates
+        - enginePower
+      properties:
+        name:
+          type: string
+          minLength: 1
+          pattern: '^\s*\S[\s\S]*$'
+          example: Tesla Roadster Mk II
+        coordinates:
+          $ref: '#/components/schemas/Coordinates'
+        enginePower:
+          type: number
+          format: float
+          minimum: 0
+          exclusiveMinimum: true
+          example: 720
+        numberOfWheels:
+          type: integer
+          format: int32
+          minimum: 1
+          nullable: true
+          example: 4
+        mileage:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+          example: 15320.7
+        type:
+          $ref: '#/components/schemas/NullableVehicleType'
+        fuelType:
+          $ref: '#/components/schemas/NullableFuelType'
+      additionalProperties: false
+  responses:
+    BadRequest:
+      description: |
+        The request violates the integrity constraints of the model
+        or carries invalid parameters.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: No vehicle with the given identifier exists.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnsupportedMediaType:
+      description: The request body was supplied in a format other than application/json.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalServerError:
+      description: Internal service error.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'

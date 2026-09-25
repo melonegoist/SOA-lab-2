@@ -1,0 +1,97 @@
+plugins {
+    id 'war'
+    alias(libs.plugins.openapi.generator)
+}
+
+configurations.named('runtimeClasspath') {
+    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-annotations'
+}
+
+dependencies {
+    providedCompile libs.jakartaee.web.api
+    providedCompile libs.microprofile.config.api
+    providedCompile libs.jersey.server
+    providedCompile libs.jersey.media.json.jackson
+
+    providedCompile platform(libs.payara.jackson.bom)
+    providedCompile libs.jackson.databind
+    implementation platform(libs.payara.jackson.bom)
+    implementation libs.jackson.datatype.jsr310
+
+    implementation libs.flyway.core
+    implementation libs.flyway.database.postgresql
+
+    testImplementation platform(libs.junit.bom)
+    testImplementation libs.junit.jupiter
+    testImplementation libs.assertj.core
+    testImplementation libs.jakartaee.web.api
+    testRuntimeOnly libs.junit.platform.launcher
+}
+
+def generatedSources = layout.buildDirectory.dir('generated/openapi')
+
+openApiGenerate {
+    generatorName = 'jaxrs-spec'
+    inputSpec = rootProject.file('openapi/vehicle-service.yaml').absolutePath
+    outputDir = generatedSources.get().asFile.absolutePath
+    cleanupOutput = true
+    templateDir = file('openapi-templates').absolutePath
+    apiPackage = 'org.itmo.vehicle.infrastructure.web.generated.api'
+    modelPackage = 'org.itmo.vehicle.infrastructure.web.generated.model'
+    // VehicleDto vs the domain's Vehicle: no clash of simple names in mappers.
+    modelNameSuffix = 'Dto'
+    globalProperties = [apis: '', models: '']
+    generateApiTests = false
+    generateModelTests = false
+    generateApiDocumentation = false
+    generateModelDocumentation = false
+    configOptions = [
+            interfaceOnly          : 'true',
+            returnResponse         : 'true',
+            useJakartaEe           : 'true',
+            useBeanValidation      : 'true',
+            useSwaggerAnnotations  : 'false',
+            useTags                : 'true',
+            dateLibrary            : 'java8',
+            openApiNullable        : 'false',
+            hideGenerationTimestamp: 'true',
+            sourceFolder           : 'src/main/java',
+    ]
+}
+
+sourceSets.main.java.srcDir(generatedSources.map { it.dir('src/main/java') })
+tasks.named('compileJava') { dependsOn tasks.named('openApiGenerate') }
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+//   ./gradlew :vehicle-service:contractTest
+//   ./gradlew :vehicle-service:contractTest -Pcontract.certificates=<dir with vehicle.crt>
+sourceSets {
+    contractTest
+}
+configurations {
+    contractTestImplementation.extendsFrom testImplementation
+    contractTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+dependencies {
+    contractTestImplementation project(':contract-testing')
+}
+tasks.register('contractTest', Test) {
+    description = 'Checks a deployed vehicle service against openapi/vehicle-service.yaml.'
+    group = 'verification'
+    testClassesDirs = sourceSets.contractTest.output.classesDirs
+    classpath = sourceSets.contractTest.runtimeClasspath
+    useJUnitPlatform()
+    systemProperty 'contract.vehicle.spec', rootProject.file('openapi/vehicle-service.yaml').absolutePath
+    systemProperty 'contract.vehicle.baseUrl',
+            findProperty('contract.vehicle.baseUrl') ?: 'https://localhost:28581/vehicle-service'
+    systemProperty 'contract.certificates',
+            rootProject.file(findProperty('contract.certificates') ?: '.local/soa/secrets').absolutePath
+    outputs.upToDateWhen { false }
+}
+
+war {
+    archiveFileName = 'vehicle-service.war'
+}
